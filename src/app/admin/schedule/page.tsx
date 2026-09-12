@@ -167,6 +167,12 @@ export default async function AdminSchedulePage({
             >
               ← Panel del administrador
             </Link>
+            <Link
+              href="/admin/schedule/import"
+              className="text-sm text-gray-500 hover:underline"
+            >
+              Importar desde Excel →
+            </Link>
           </div>
           <form action={signOut}>
             <button

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.local.example
 
+# datos reales de empleados/horarios (PII) — nunca deben llegar al repositorio
+/docs/private/
+
 # vercel
 .vercel
 

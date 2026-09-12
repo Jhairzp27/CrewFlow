@@ -11,6 +11,7 @@ el sistema). Antes de dar acceso a empleados reales, sigue esta lista.
 - [ ] En **Project Settings → Environment Variables**, agregar:
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` (Settings → API Keys → "service_role" en Supabase — **secreta**, la usa la importación de horarios desde Excel para crear cuentas de empleados; nunca debe llevar el prefijo `NEXT_PUBLIC_`)
   (los mismos valores de tu `.env.local`; usa `.env.local.example` como referencia del formato).
 - [ ] Desplegar y verificar el flujo completo (login, panel admin, panel empleado) en la URL `*.vercel.app` que genera Vercel.
 - [ ] (Opcional) Conectar un dominio propio en **Project Settings → Domains**.
@@ -32,13 +33,31 @@ Si creas el proyecto de producción:
 - [ ] **Correo real para Auth**: configura un proveedor SMTP propio (Authentication → Settings → SMTP) para que la confirmación de cuenta y el reseteo de contraseña lleguen a los empleados; no dependas de "Auto Confirm User" del dashboard (eso es solo para pruebas).
 - [ ] **Protección de contraseñas filtradas**: activa la verificación contra HaveIBeenPwned en Authentication → Settings (gratis, un toggle).
 - [ ] **Revisión de RLS**: corre el linter de Supabase (Database → Advisors) para confirmar que ninguna tabla quedó sin RLS habilitada y que no hay policies de más.
-- [ ] **Nunca expongas la Service Role Key** en variables `NEXT_PUBLIC_*` ni en el cliente — el proyecto actual no la usa en ningún lado, mantenlo así.
+- [ ] **Nunca expongas la Service Role Key** en variables `NEXT_PUBLIC_*` ni en el cliente — hoy la usa exclusivamente `src/app/admin/schedule/import/actions.ts` (importación de Excel), server-side, protegido por una verificación explícita de rol admin antes de usarla.
 - [ ] **Sin auto-registro público**: confirma que sigue sin existir una ruta `/signup` — el alta de personal debe seguir siendo manual por parte del administrador (coincide con el proceso de negocio de Michael).
 - [ ] **Backups**: verifica que el plan de Supabase de producción tenga backups diarios o Point-in-Time Recovery activado.
 - [ ] **Site URL**: en Authentication → URL Configuration, actualiza el "Site URL" al dominio real de producción (afecta los links que genera Supabase Auth).
 
-## 4. Antes del primer día real
+## 4. Importación de horarios reales desde Excel
 
+Admin → Planificador de turnos → **Importar desde Excel** (`/admin/schedule/import`)
+lee el formato semanal de Michael (fila `FECHAS` + bloques `SERVICIO`/`COCINA`) y:
+- Crea automáticamente una cuenta por cada empleado nuevo (email sintético
+  `nombre.apellido@crewflow.local` + contraseña temporal, mostrada **una sola
+  vez** en pantalla al terminar la importación — cópiala de inmediato, no
+  queda guardada en ningún otro lugar).
+- Empareja empleados por nombre exacto (sin distinguir mayúsculas). Si el
+  mismo empleado aparece escrito distinto entre semanas (ej. "PEDRO" vs.
+  "PEDRO RAMIREZ"), se crean como dos personas — revisa la lista de
+  "empleados nuevos" tras cada importación y corrige/fusiona en Supabase si
+  hace falta.
+- No tiene columna de sucursal en el archivo de origen — se elige al subir
+  el archivo, así que un mismo Excel = una sola sucursal por importación.
+- Ya usa la misma validación de conflictos que crear/editar un turno manual
+  (bloquea si el empleado tiene vacaciones/día libre aprobado ese día).
+
+**Antes del primer día real de empleados reales:**
 - [ ] Cambiar o eliminar las contraseñas de las cuentas de prueba si en algún momento se compartieron en texto plano (ej. `intento1234`, compartida en el chat de esta sesión).
 - [ ] Definir el `umbral_dias_consecutivos` y demás valores de `business_rules` con Michael (hoy están en los valores que definimos nosotros: 2 días libres/semana, 10 días de antelación, umbral de desgaste en 5).
-- [ ] Crear las cuentas reales de los 8 empleados y asignarles `area` (servicio/cocina) desde `profiles`.
+- [ ] Para cada empleado creado vía importación: asignarle su `area` real si no quedó clara, y — cuando quieras que inicie sesión de verdad — actualizar su email a uno real y hacer que cambie la contraseña temporal (una vez haya SMTP configurado, puede ser por "Olvidé mi contraseña").
+- [ ] El archivo de horario real (`docs/private/`) nunca se sube al repositorio — está en `.gitignore` a propósito porque contiene nombres reales de personal. Bórralo de tu disco cuando ya no lo necesites como referencia.
