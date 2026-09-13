@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { createShift, updateShift, type ShiftFormState } from "./actions";
+import {
+  cardClass,
+  errorBoxClass,
+  infoBoxClass,
+  inputClass,
+  labelClass,
+  primaryButtonClass,
+  successBoxClass,
+} from "@/components/formStyles";
 
 const initialState: ShiftFormState = { error: null, success: false };
-
-const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900";
 
 type Employee = { id: string; full_name: string | null; email: string | null };
 type Branch = { id: string; code: string; name: string };
@@ -42,14 +48,11 @@ export function ShiftForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form
-      action={formAction}
-      className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-    >
+    <form action={formAction} className={`space-y-4 ${cardClass}`}>
       <input type="hidden" name="week" value={currentWeek} />
 
       {editingShift && (
-        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+        <p className={infoBoxClass}>
           Editando turno existente.{" "}
           {cancelHref && (
             <Link href={cancelHref} className="font-medium underline">
@@ -61,10 +64,7 @@ export function ShiftForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="employee_id"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="employee_id" className={labelClass}>
             Empleado
           </label>
           <select
@@ -86,10 +86,7 @@ export function ShiftForm({
         </div>
 
         <div>
-          <label
-            htmlFor="branch_id"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="branch_id" className={labelClass}>
             Sucursal
           </label>
           <select
@@ -113,10 +110,7 @@ export function ShiftForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="area"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="area" className={labelClass}>
             Área
           </label>
           <select
@@ -135,10 +129,7 @@ export function ShiftForm({
         </div>
 
         <div>
-          <label
-            htmlFor="shift_date"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="shift_date" className={labelClass}>
             Fecha
           </label>
           <input
@@ -154,10 +145,7 @@ export function ShiftForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="start_time"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="start_time" className={labelClass}>
             Hora de inicio
           </label>
           <input
@@ -170,10 +158,7 @@ export function ShiftForm({
           />
         </div>
         <div>
-          <label
-            htmlFor="end_time"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="end_time" className={labelClass}>
             Hora de fin
           </label>
           <input
@@ -187,22 +172,12 @@ export function ShiftForm({
         </div>
       </div>
 
-      {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
-          {state.error}
-        </p>
-      )}
+      {state.error && <p className={errorBoxClass}>{state.error}</p>}
       {state.success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-          Turno asignado correctamente.
-        </p>
+        <p className={successBoxClass}>Turno asignado correctamente.</p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className={primaryButtonClass}>
         {pending
           ? "Guardando..."
           : editingShift

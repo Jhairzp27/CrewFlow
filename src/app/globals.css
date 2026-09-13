@@ -1,26 +1,102 @@
 @import "tailwindcss";
 
+/* Habilita el modo oscuro por clase (.dark en <html>) en vez de solo por
+   preferencia del sistema, para poder ofrecer un switch manual. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+
+  --accent: #0f172a;
+  --accent-hover: #1e293b;
+  --accent-foreground: #ffffff;
+
+  --success: #f0fdf4;
+  --success-foreground: #15803d;
+  --danger: #fef2f2;
+  --danger-foreground: #b91c1c;
+  --warning: #fefce8;
+  --warning-foreground: #a16207;
+  --info: #eff6ff;
+  --info-foreground: #1d4ed8;
+
+  --branch-u2: #eff6ff;
+  --branch-u2-foreground: #1d4ed8;
+  --branch-u3: #f0fdf4;
+  --branch-u3-foreground: #15803d;
+}
+
+:root.dark {
+  --background: #0b1120;
+  --surface: #111827;
+  --surface-hover: #1a2333;
+  --border: #263041;
+  --foreground: #e2e8f0;
+  --muted: #94a3b8;
+  --faint: #64748b;
+
+  --accent: #e2e8f0;
+  --accent-hover: #f8fafc;
+  --accent-foreground: #0b1120;
+
+  --success: #052e16;
+  --success-foreground: #4ade80;
+  --danger: #450a0a;
+  --danger-foreground: #f87171;
+  --warning: #422006;
+  --warning-foreground: #facc15;
+  --info: #172554;
+  --info-foreground: #60a5fa;
+
+  --branch-u2: #172554;
+  --branch-u2-foreground: #60a5fa;
+  --branch-u3: #052e16;
+  --branch-u3-foreground: #4ade80;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-branch-u2: var(--branch-u2);
+  --color-branch-u2-foreground: var(--branch-u2-foreground);
+  --color-branch-u3: var(--branch-u3);
+  --color-branch-u3-foreground: var(--branch-u3-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Evita el "flash" de tema incorrecto mientras carga el script del toggle. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }

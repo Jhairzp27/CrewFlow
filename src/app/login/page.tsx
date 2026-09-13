@@ -2,6 +2,14 @@
 
 import { useActionState } from "react";
 import { login, type LoginState } from "./actions";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  cardClass,
+  errorBoxClass,
+  inputClass,
+  labelClass,
+  primaryButtonClass,
+} from "@/components/formStyles";
 
 const initialState: LoginState = { error: null };
 
@@ -9,21 +17,25 @@ export default function LoginPage() {
   const [state, formAction, pending] = useActionState(login, initialState);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+    <main className="relative flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
+
+      <div className={`w-full max-w-sm ${cardClass}`}>
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold text-gray-900">CrewFlow</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
+            CF
+          </div>
+          <h1 className="text-2xl font-semibold text-foreground">CrewFlow</h1>
+          <p className="mt-1 text-sm text-muted">
             Gestión de horarios U2 / U3
           </p>
         </div>
 
         <form action={formAction} className="space-y-4">
           <div>
-            <label
-              htmlFor="email"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="email" className={labelClass}>
               Correo electrónico
             </label>
             <input
@@ -32,16 +44,13 @@ export default function LoginPage() {
               type="email"
               required
               autoComplete="email"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              className={inputClass}
               placeholder="nombre@crewflow.com"
             />
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="password" className={labelClass}>
               Contraseña
             </label>
             <input
@@ -50,21 +59,17 @@ export default function LoginPage() {
               type="password"
               required
               autoComplete="current-password"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              className={inputClass}
               placeholder="••••••••"
             />
           </div>
 
-          {state.error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
-              {state.error}
-            </p>
-          )}
+          {state.error && <p className={errorBoxClass}>{state.error}</p>}
 
           <button
             type="submit"
             disabled={pending}
-            className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`w-full ${primaryButtonClass}`}
           >
             {pending ? "Ingresando..." : "Iniciar sesión"}
           </button>

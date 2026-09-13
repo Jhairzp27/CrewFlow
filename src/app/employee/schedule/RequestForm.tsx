@@ -2,15 +2,20 @@
 
 import { useActionState, useState } from "react";
 import { createTimeOffRequest, type TimeOffRequestState } from "./actions";
+import {
+  cardClass,
+  errorBoxClass,
+  inputClass,
+  labelClass,
+  primaryButtonClass,
+  successBoxClass,
+} from "@/components/formStyles";
 
 const initialState: TimeOffRequestState = {
   error: null,
   success: false,
   requestType: null,
 };
-
-const inputClass =
-  "w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 disabled:bg-gray-100 disabled:text-gray-400";
 
 export function TimeOffRequestForm() {
   const [state, formAction, pending] = useActionState(
@@ -25,15 +30,9 @@ export function TimeOffRequestForm() {
   >(state.requestType ?? "dia_libre");
 
   return (
-    <form
-      action={formAction}
-      className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-    >
+    <form action={formAction} className={`space-y-4 ${cardClass}`}>
       <div>
-        <label
-          htmlFor="request_type"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor="request_type" className={labelClass}>
           Tipo de solicitud
         </label>
         <select
@@ -53,10 +52,7 @@ export function TimeOffRequestForm() {
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label
-            htmlFor="start_date"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="start_date" className={labelClass}>
             Fecha de inicio
           </label>
           <input
@@ -68,10 +64,7 @@ export function TimeOffRequestForm() {
           />
         </div>
         <div>
-          <label
-            htmlFor="end_date"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="end_date" className={labelClass}>
             Fecha de fin
           </label>
           <input
@@ -87,10 +80,7 @@ export function TimeOffRequestForm() {
       {requestType === "permiso_horas" && (
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label
-              htmlFor="start_time"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="start_time" className={labelClass}>
               Hora de inicio
             </label>
             <input
@@ -102,10 +92,7 @@ export function TimeOffRequestForm() {
             />
           </div>
           <div>
-            <label
-              htmlFor="end_time"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="end_time" className={labelClass}>
               Hora de fin
             </label>
             <input
@@ -121,10 +108,7 @@ export function TimeOffRequestForm() {
 
       {requestType === "dia_libre" && (
         <div>
-          <label
-            htmlFor="exception_reason"
-            className="mb-1 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="exception_reason" className={labelClass}>
             ¿Es una excepción? (opcional)
           </label>
           <select
@@ -141,22 +125,15 @@ export function TimeOffRequestForm() {
       )}
 
       <div>
-        <label
-          htmlFor="reason"
-          className="mb-1 block text-sm font-medium text-gray-700"
-        >
+        <label htmlFor="reason" className={labelClass}>
           Comentario (opcional)
         </label>
         <textarea id="reason" name="reason" rows={2} className={inputClass} />
       </div>
 
-      {state.error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">
-          {state.error}
-        </p>
-      )}
+      {state.error && <p className={errorBoxClass}>{state.error}</p>}
       {state.success && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+        <p className={successBoxClass}>
           Solicitud enviada. Quedó en estado pendiente de aprobación.
         </p>
       )}
@@ -164,7 +141,7 @@ export function TimeOffRequestForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`w-full ${primaryButtonClass}`}
       >
         {pending ? "Enviando..." : "Enviar solicitud"}
       </button>

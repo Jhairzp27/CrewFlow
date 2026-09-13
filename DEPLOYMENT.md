@@ -52,8 +52,11 @@ lee el formato semanal del cliente (fila `FECHAS` + bloques `SERVICIO`/`COCINA`)
   "PEDRO RAMIREZ"), se crean como dos personas — revisa la lista de
   "empleados nuevos" tras cada importación y corrige/fusiona en Supabase si
   hace falta.
-- No tiene columna de sucursal en el archivo de origen — se elige al subir
-  el archivo, así que un mismo Excel = una sola sucursal por importación.
+- No tiene columna de sucursal en el archivo de origen (los empleados
+  rotan entre U2 y U3 dentro de la misma semana) — por eso hay un paso de
+  revisión donde se asigna la sucursal por empleado y por día antes de
+  confirmar, con un botón para aplicarla en bloque cuando toda la semana
+  fue en la misma sucursal.
 - Ya usa la misma validación de conflictos que crear/editar un turno manual
   (bloquea si el empleado tiene vacaciones/día libre aprobado ese día).
 
