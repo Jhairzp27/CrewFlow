@@ -37,6 +37,9 @@ yarn-error.log*
 # datos reales de empleados/horarios (PII) — nunca deben llegar al repositorio
 /docs/private/
 
+# documento de reglas de negocio internas — no debe ser público
+/Requisitos del Sistema_ Gestión de Horarios U2_U3.md
+
 # vercel
 .vercel
 
