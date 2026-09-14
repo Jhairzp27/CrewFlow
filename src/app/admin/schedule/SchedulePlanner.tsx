@@ -247,10 +247,20 @@ export function SchedulePlanner({
       {draftState.summary && (
         <div className="m-3 space-y-1.5 rounded-lg border-2 border-dashed border-info-foreground bg-info/30 px-4 py-3 text-sm">
           <p className="font-medium text-foreground">
-            ✨ {draftState.summary.shiftsCreated} turno(s) sugeridos
-            {draftState.summary.branchFilterApplied ? ` para ${draftState.summary.branchFilterApplied}` : ""}{" "}
-            — se ven con borde punteado y la etiqueta "IA" en la grilla. Apruébalos, edítalos o
-            elimínalos, no quedan confirmados hasta que decidas.
+            {draftState.summary.shiftsCreated === 0 ? (
+              draftState.summary.unfilledSlots.length === 0 ? (
+                <>✨ No hizo falta generar nada — el servicio ya está prácticamente cubierto esta semana{draftState.summary.branchFilterApplied ? ` en ${draftState.summary.branchFilterApplied}` : ""}.</>
+              ) : (
+                <>✨ No se generó ningún turno: había huecos, pero no quedaba nadie de servicio disponible (ya trabajan ese día, están de permiso, o alcanzaron su límite de días). Revisa el detalle abajo.</>
+              )
+            ) : (
+              <>
+                ✨ {draftState.summary.shiftsCreated} turno(s) sugeridos
+                {draftState.summary.branchFilterApplied ? ` para ${draftState.summary.branchFilterApplied}` : ""}{" "}
+                — se ven con borde punteado y la etiqueta "IA" en la grilla. Apruébalos, edítalos o
+                elimínalos, no quedan confirmados hasta que decidas.
+              </>
+            )}
           </p>
           {draftState.summary.kitchenGapsRemaining > 0 && (
             <p className="text-xs text-muted">
