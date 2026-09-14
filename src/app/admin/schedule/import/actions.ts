@@ -32,6 +32,7 @@ export type ParseState = {
     skippedSummary: { reason: string; count: number }[];
     warnings: string[];
     knownEmployeeNames: string[]; // ya existen en profiles, no se crearán cuentas nuevas
+    lastBranchByEmployeeName: Record<string, string>; // sucursal de su turno más reciente, para precargar el selector
   } | null;
 };
 
@@ -121,13 +122,41 @@ export async function parseScheduleFile(
 
   const { data: existingProfiles } = await admin.supabase
     .from("profiles")
-    .select("full_name")
+    .select("id, full_name")
     .eq("role", "employee");
   const knownNames = new Set(
     (existingProfiles ?? [])
       .map((p) => p.full_name?.trim().toUpperCase())
       .filter((n): n is string => Boolean(n))
   );
+
+  // Sucursal del turno más reciente de cada empleado ya conocido, para
+  // precargar el selector de sucursal en la fase de revisión — el Excel no
+  // trae sucursal, pero la mayoría de la semana un empleado repite la misma.
+  const idByUpperName = new Map(
+    (existingProfiles ?? [])
+      .filter((p) => p.full_name)
+      .map((p) => [p.full_name!.trim().toUpperCase(), p.id])
+  );
+  const lastBranchByEmployeeName: Record<string, string> = {};
+  const knownIds = Array.from(idByUpperName.values());
+  if (knownIds.length > 0) {
+    const { data: recentShifts } = await admin.supabase
+      .from("shifts")
+      .select("employee_id, branch_id, shift_date")
+      .in("employee_id", knownIds)
+      .order("shift_date", { ascending: false });
+    const idToUpperName = new Map(
+      Array.from(idByUpperName, ([name, id]) => [id, name])
+    );
+    const seen = new Set<string>();
+    for (const s of recentShifts ?? []) {
+      if (seen.has(s.employee_id)) continue;
+      seen.add(s.employee_id);
+      const upperName = idToUpperName.get(s.employee_id);
+      if (upperName) lastBranchByEmployeeName[upperName] = s.branch_id;
+    }
+  }
 
   const skipReasons: { reason: string; count: number }[] = [];
   const libreCount = skipped.filter((s) => s.reason === "libre").length;
@@ -144,6 +173,7 @@ export async function parseScheduleFile(
       skippedSummary: skipReasons,
       warnings,
       knownEmployeeNames: Array.from(knownNames),
+      lastBranchByEmployeeName,
     },
   };
 }
@@ -219,7 +249,7 @@ export async function confirmScheduleImport(
 
   const { data: existingProfiles } = await supabase
     .from("profiles")
-    .select("id, full_name")
+    .select("id, full_name, area")
     .eq("role", "employee");
 
   const employeeIdByName = new Map<string, string>();
@@ -294,6 +324,36 @@ export async function confirmScheduleImport(
 
       employeeIdByName.set(upperName, created.user.id);
       employeesCreated.push({ fullName: displayName, email, tempPassword });
+    }
+  }
+
+  // Sincroniza el área de empleados que ya existían (a los nuevos ya se les
+  // asignó arriba): el Excel es la fuente de verdad de en qué bloque
+  // (SERVICIO/COCINA) trabaja cada quien esta semana, así que si difiere de
+  // lo guardado se actualiza — y se avisa en el resumen, nunca en silencio.
+  for (const upperName of uniqueNames) {
+    if (namesToCreate.includes(upperName)) continue;
+    const profile = (existingProfiles ?? []).find(
+      (p) => p.full_name?.trim().toUpperCase() === upperName
+    );
+    if (!profile) continue;
+    const detectedArea = entries.find(
+      (e) => e.employeeName.trim().toUpperCase() === upperName
+    )?.area;
+    if (detectedArea && detectedArea !== profile.area) {
+      const { error: areaUpdateError } = await supabase
+        .from("profiles")
+        .update({ area: detectedArea })
+        .eq("id", profile.id);
+      if (areaUpdateError) {
+        console.error("confirmScheduleImport area sync error:", areaUpdateError);
+      } else {
+        warnings.push(
+          profile.area
+            ? `${profile.full_name}: área actualizada de ${profile.area} a ${detectedArea} según el Excel.`
+            : `${profile.full_name}: área asignada a ${detectedArea} según el Excel.`
+        );
+      }
     }
   }
 

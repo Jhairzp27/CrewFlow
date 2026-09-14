@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   parseScheduleFile,
   confirmScheduleImport,
@@ -35,6 +35,23 @@ export function ImportForm({ branches }: { branches: Branch[] }) {
   const [branchByKey, setBranchByKey] = useState<Record<string, string>>({});
 
   const preview = parseState.preview;
+
+  // Precarga la sucursal de cada turno con la última sucursal conocida del
+  // empleado (si tiene historial) — así el admin solo ajusta excepciones en
+  // vez de elegir sucursal turno por turno. Solo la primera vez que llega un
+  // preview nuevo, para no pisar los ajustes que ya haya hecho el admin.
+  useEffect(() => {
+    if (!preview) return;
+    setBranchByKey((prev) => {
+      if (Object.keys(prev).length > 0) return prev;
+      const seeded: Record<string, string> = {};
+      for (const e of preview.entries) {
+        const branchId = preview.lastBranchByEmployeeName[e.employeeName.trim().toUpperCase()];
+        if (branchId) seeded[e.key] = branchId;
+      }
+      return seeded;
+    });
+  }, [preview]);
 
   const groups = useMemo(() => {
     if (!preview) return [];
@@ -177,7 +194,9 @@ export function ImportForm({ branches }: { branches: Branch[] }) {
             <strong>{groups.length}</strong> empleado(s). Tu archivo no
             distingue sucursal, así que asígnala abajo antes de confirmar —
             un empleado puede rotar de sucursal durante la semana, así que
-            puedes ajustarla también por día.
+            puedes ajustarla también por día. Para quien ya tiene turnos
+            anteriores, precargamos su última sucursal conocida (marcada como
+            &quot;detectado&quot;) — revísala y ajusta solo las excepciones.
           </p>
 
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-hover p-3">
@@ -267,25 +286,32 @@ export function ImportForm({ branches }: { branches: Branch[] }) {
                           {entry.startTime}-{entry.endTime}
                         </td>
                         <td className="py-1.5 pr-3">
-                          <select
-                            className={`${inputClass} w-auto`}
-                            value={branchByKey[entry.key] ?? ""}
-                            onChange={(e) =>
-                              setBranchByKey((prev) => ({
-                                ...prev,
-                                [entry.key]: e.target.value,
-                              }))
-                            }
-                          >
-                            <option value="" disabled>
-                              Sin asignar
-                            </option>
-                            {branches.map((b) => (
-                              <option key={b.id} value={b.id}>
-                                {b.code}
+                          <div className="flex items-center gap-1.5">
+                            <select
+                              className={`${inputClass} w-auto`}
+                              value={branchByKey[entry.key] ?? ""}
+                              onChange={(e) =>
+                                setBranchByKey((prev) => ({
+                                  ...prev,
+                                  [entry.key]: e.target.value,
+                                }))
+                              }
+                            >
+                              <option value="" disabled>
+                                Sin asignar
                               </option>
-                            ))}
-                          </select>
+                              {branches.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.code}
+                                </option>
+                              ))}
+                            </select>
+                            {preview.lastBranchByEmployeeName[
+                              entry.employeeName.trim().toUpperCase()
+                            ] === branchByKey[entry.key] && (
+                              <span className="text-[10px] text-faint">detectado</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

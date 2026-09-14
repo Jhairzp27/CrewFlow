@@ -3,9 +3,12 @@ import { createClient } from "@/utils/supabase/server";
 import { reviewTimeOffRequest, addPerformanceNote } from "./actions";
 import { longestConsecutiveStreak } from "@/lib/streak";
 import { mondayOf, todayDateOnly, weekDates } from "@/lib/dates";
+import { hoursBetween } from "@/lib/hours";
 import { StatCard } from "@/components/StatCard";
 import { Badge } from "@/components/Badge";
 import { ScheduleGrid, type GridEmployee, type GridShift } from "@/components/ScheduleGrid";
+import { WorkloadRanking, type WorkloadRow } from "@/components/schedule/WorkloadRanking";
+import { inputClass, labelClass, primaryButtonClass } from "@/components/formStyles";
 
 const DEFAULT_CONSECUTIVE_DAYS_THRESHOLD = 5;
 
@@ -74,7 +77,7 @@ export default async function AdminDashboardPage() {
 
   const { data: employees } = await supabase
     .from("profiles")
-    .select("id, full_name, email, area")
+    .select("id, full_name, email, area, weekly_contracted_hours")
     .eq("role", "employee")
     .order("full_name", { ascending: true });
 
@@ -134,6 +137,27 @@ export default async function AdminDashboardPage() {
       area: e.area as "servicio" | "cocina" | null,
     }));
 
+  const workloadRows: WorkloadRow[] = (employees ?? []).map((e) => {
+    let hoursWorked = 0;
+    for (const date of dates) {
+      for (const s of shiftsByEmployeeDate.get(`${e.id}_${date}`) ?? []) {
+        hoursWorked += hoursBetween(s.startTime, s.endTime);
+      }
+    }
+    return {
+      id: e.id,
+      name: e.full_name ?? e.email ?? "—",
+      hoursWorked,
+      hoursContracted: e.weekly_contracted_hours ?? 40,
+    };
+  });
+
+  const pendingRequests = requests.filter((r) => r.status === "pendiente");
+  const decidedRequests = requests.filter((r) => r.status !== "pendiente");
+  const atRiskRows = burnoutRows
+    .filter((r) => (r.streak?.length ?? 0) >= consecutiveDaysThreshold)
+    .sort((a, b) => (b.streak?.length ?? 0) - (a.streak?.length ?? 0));
+
   const { data: notesData } = await supabase
     .from("performance_notes")
     .select(
@@ -143,9 +167,11 @@ export default async function AdminDashboardPage() {
     .order("created_at", { ascending: false })
     .limit(20);
   const notes = (notesData ?? []) as unknown as NoteRow[];
+  const recentNotes = notes.slice(0, 3);
+  const olderNotes = notes.slice(3);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div>
         <h1 className="text-xl font-semibold text-foreground">
           Inicio
@@ -174,257 +200,237 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* ------------------------------------------------------------ */}
-      {/* Horario de esta semana (vista rápida, estilo Excel)           */}
+      {/* Dos columnas: horario (principal) + panel de gestión           */}
       {/* ------------------------------------------------------------ */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">
-            Horario de esta semana ({dates[0]} → {dates[6]})
-          </h2>
-          <Link
-            href="/admin/schedule"
-            className="text-sm text-muted hover:text-foreground hover:underline"
-          >
-            Ver planificador completo →
-          </Link>
-        </div>
-        <ScheduleGrid
-          dates={dates}
-          employees={gridEmployees}
-          shiftsByEmployeeDate={shiftsByEmployeeDate}
-          todayDate={todayDateOnly()}
-        />
-      </section>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        {/* Columna izquierda: lo principal, el horario */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-foreground">
+              Horario de esta semana ({dates[0]} → {dates[6]})
+            </h2>
+            <Link
+              href="/admin/schedule"
+              className="text-sm text-muted hover:text-foreground hover:underline"
+            >
+              Ver planificador completo →
+            </Link>
+          </div>
+          <ScheduleGrid
+            dates={dates}
+            employees={gridEmployees}
+            shiftsByEmployeeDate={shiftsByEmployeeDate}
+            todayDate={todayDateOnly()}
+          />
+        </section>
 
-      {/* ------------------------------------------------------------ */}
-      {/* Solicitudes de permisos y vacaciones                          */}
-      {/* ------------------------------------------------------------ */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">
-          Solicitudes de permisos y vacaciones
-        </h2>
-        {requests.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-hover text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Empleado</th>
-                  <th className="px-4 py-2 font-medium">Tipo</th>
-                  <th className="px-4 py-2 font-medium">Fechas</th>
-                  <th className="px-4 py-2 font-medium">Estado</th>
-                  <th className="px-4 py-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {requests.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-4 py-2 text-foreground">
+        {/* Columna derecha: todo lo que requiere una decisión o acción del admin */}
+        <div className="space-y-6">
+          {/* Solicitudes pendientes -------------------------------------- */}
+          <section className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Solicitudes pendientes {pendingRequests.length > 0 && `(${pendingRequests.length})`}
+            </h2>
+            {pendingRequests.length > 0 ? (
+              <ul className="space-y-2.5">
+                {pendingRequests.map((r) => (
+                  <li key={r.id} className="rounded-lg border border-border p-2.5">
+                    <p className="text-sm font-medium text-foreground">
                       {r.employee?.full_name ?? r.employee?.email ?? "—"}
-                    </td>
-                    <td className="px-4 py-2 text-foreground">
-                      {TYPE_LABEL[r.request_type] ?? r.request_type}
-                      {r.exception_reason && (
-                        <Badge variant="warning" className="ml-1">
-                          {EXCEPTION_LABEL[r.exception_reason] ??
-                            r.exception_reason}
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-muted">
+                    </p>
+                    <p className="text-xs text-muted">
+                      {TYPE_LABEL[r.request_type] ?? r.request_type} ·{" "}
                       {r.start_date === r.end_date
                         ? r.start_date
                         : `${r.start_date} → ${r.end_date}`}
-                      {r.start_time && r.end_time
-                        ? ` (${r.start_time.slice(0, 5)}-${r.end_time.slice(
-                            0,
-                            5
-                          )})`
-                        : ""}
-                    </td>
-                    <td className="px-4 py-2">
+                    </p>
+                    {r.exception_reason && (
+                      <Badge variant="warning" className="mt-1">
+                        {EXCEPTION_LABEL[r.exception_reason] ?? r.exception_reason}
+                      </Badge>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      <form action={reviewTimeOffRequest.bind(null, r.id, "aprobada")}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-success bg-success px-2 py-1 text-xs font-medium text-success-foreground hover:opacity-80"
+                        >
+                          Aprobar
+                        </button>
+                      </form>
+                      <form action={reviewTimeOffRequest.bind(null, r.id, "rechazada")}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-danger bg-danger px-2 py-1 text-xs font-medium text-danger-foreground hover:opacity-80"
+                        >
+                          Rechazar
+                        </button>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">No hay solicitudes pendientes.</p>
+            )}
+            {decidedRequests.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted hover:text-foreground">
+                  Ver historial ({decidedRequests.length})
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {decidedRequests.map((r) => (
+                    <li key={r.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-foreground">
+                        {r.employee?.full_name ?? r.employee?.email ?? "—"} ·{" "}
+                        {TYPE_LABEL[r.request_type] ?? r.request_type}
+                      </span>
                       <Badge variant={STATUS_VARIANT[r.status] ?? "neutral"}>
                         {STATUS_LABEL[r.status] ?? r.status}
                       </Badge>
-                    </td>
-                    <td className="px-4 py-2">
-                      {r.status === "pendiente" && (
-                        <div className="flex justify-end gap-2">
-                          <form
-                            action={reviewTimeOffRequest.bind(
-                              null,
-                              r.id,
-                              "aprobada"
-                            )}
-                          >
-                            <button
-                              type="submit"
-                              className="rounded-md border border-success bg-success px-2 py-1 text-xs font-medium text-success-foreground hover:opacity-80"
-                            >
-                              Aprobar
-                            </button>
-                          </form>
-                          <form
-                            action={reviewTimeOffRequest.bind(
-                              null,
-                              r.id,
-                              "rechazada"
-                            )}
-                          >
-                            <button
-                              type="submit"
-                              className="rounded-md border border-danger bg-danger px-2 py-1 text-xs font-medium text-danger-foreground hover:opacity-80"
-                            >
-                              Rechazar
-                            </button>
-                          </form>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+
+          {/* Quién trabaja más ------------------------------------------- */}
+          <section className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Horas trabajadas esta semana
+            </h2>
+            <WorkloadRanking rows={workloadRows} />
+          </section>
+
+          {/* Desgaste laboral ---------------------------------------------- */}
+          <section className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">
+              Empleados en riesgo de desgaste
+            </h2>
+            <p className="mb-3 text-xs text-muted">
+              {consecutiveDaysThreshold}+ días consecutivos con turno.
+            </p>
+            {atRiskRows.length > 0 ? (
+              <ul className="space-y-2">
+                {atRiskRows.map(({ employee, streak }) => (
+                  <li key={employee.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate text-foreground">
+                      {employee.full_name ?? employee.email}
+                    </span>
+                    <Badge variant="danger">{streak?.length} días</Badge>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-muted">
-            No hay solicitudes registradas todavía.
-          </p>
-        )}
-      </section>
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">Nadie en riesgo esta semana.</p>
+            )}
+            {burnoutRows.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted hover:text-foreground">
+                  Ver todos los empleados ({burnoutRows.length})
+                </summary>
+                <ul className="mt-2 space-y-1.5">
+                  {burnoutRows.map(({ employee, streak }) => {
+                    const length = streak?.length ?? 0;
+                    const isBurnoutRisk = length >= consecutiveDaysThreshold;
+                    return (
+                      <li key={employee.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="truncate text-foreground">
+                          {employee.full_name ?? employee.email}
+                        </span>
+                        <span className={isBurnoutRisk ? "text-danger-foreground" : "text-muted"}>
+                          {length} {length === 1 ? "día" : "días"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </details>
+            )}
+          </section>
 
-      {/* ------------------------------------------------------------ */}
-      {/* Desgaste laboral                                              */}
-      {/* ------------------------------------------------------------ */}
-      <section>
-        <h2 className="mb-1 text-sm font-semibold text-foreground">
-          Desgaste laboral
-        </h2>
-        <p className="mb-3 text-xs text-muted">
-          Racha más larga de días consecutivos con turno asignado, según los
-          turnos actualmente en el planificador. Umbral de alerta:{" "}
-          {consecutiveDaysThreshold} días o más.
-        </p>
+          {/* Anotaciones de desempeño --------------------------------------- */}
+          <section className="rounded-xl border border-border bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">
+              Anotaciones de desempeño
+            </h2>
+            <form action={addPerformanceNote} className="space-y-2.5">
+              <div>
+                <label htmlFor="employee_id" className={`${labelClass} mb-1 text-xs`}>
+                  Empleado
+                </label>
+                <select
+                  id="employee_id"
+                  name="employee_id"
+                  required
+                  defaultValue=""
+                  className={`${inputClass} text-sm`}
+                >
+                  <option value="" disabled>
+                    Selecciona un empleado
+                  </option>
+                  {employees?.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.full_name ?? e.email} {e.area ? `(${e.area})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="note" className={`${labelClass} mb-1 text-xs`}>
+                  Anotación
+                </label>
+                <textarea
+                  id="note"
+                  name="note"
+                  rows={2}
+                  required
+                  placeholder="Ej. Tercera tardanza esta semana en U2."
+                  className={`${inputClass} text-sm`}
+                />
+              </div>
+              <button type="submit" className={`${primaryButtonClass} w-full`}>
+                Guardar anotación
+              </button>
+            </form>
 
-        {burnoutRows.length > 0 ? (
-          <div className="mb-6 overflow-x-auto rounded-xl border border-border bg-surface">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-surface-hover text-muted">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Empleado</th>
-                  <th className="px-4 py-2 font-medium">Racha</th>
-                  <th className="px-4 py-2 font-medium">Periodo</th>
-                  <th className="px-4 py-2 font-medium">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {burnoutRows.map(({ employee, streak }) => {
-                  const length = streak?.length ?? 0;
-                  const isBurnoutRisk = length >= consecutiveDaysThreshold;
-                  return (
-                    <tr key={employee.id}>
-                      <td className="px-4 py-2 text-foreground">
-                        {employee.full_name ?? employee.email}
-                      </td>
-                      <td className="px-4 py-2 text-foreground">
-                        {length} {length === 1 ? "día" : "días"}
-                      </td>
-                      <td className="px-4 py-2 text-muted">
-                        {streak ? `${streak.start} → ${streak.end}` : "—"}
-                      </td>
-                      <td className="px-4 py-2">
-                        <Badge variant={isBurnoutRisk ? "danger" : "success"}>
-                          {isBurnoutRisk ? "Riesgo de desgaste" : "Normal"}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mb-6 text-sm text-muted">
-            No hay empleados registrados todavía.
-          </p>
-        )}
-
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
-          Anotaciones de desempeño
-        </h3>
-        <form
-          action={addPerformanceNote}
-          className="mb-6 space-y-3 rounded-xl border border-border bg-surface p-4"
-        >
-          <div>
-            <label
-              htmlFor="employee_id"
-              className="mb-1 block text-sm font-medium text-foreground"
-            >
-              Empleado
-            </label>
-            <select
-              id="employee_id"
-              name="employee_id"
-              required
-              defaultValue=""
-              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="" disabled>
-                Selecciona un empleado
-              </option>
-              {employees?.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.full_name ?? e.email} {e.area ? `(${e.area})` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label
-              htmlFor="note"
-              className="mb-1 block text-sm font-medium text-foreground"
-            >
-              Anotación
-            </label>
-            <textarea
-              id="note"
-              name="note"
-              rows={2}
-              required
-              placeholder="Ej. Tercera tardanza esta semana en U2."
-              className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-          >
-            Guardar anotación
-          </button>
-        </form>
-
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">
-          Anotaciones recientes
-        </h3>
-        {notes && notes.length > 0 ? (
-          <ul className="space-y-2">
-            {notes.map((n) => (
-              <li
-                key={n.id}
-                className="rounded-lg border border-border bg-surface p-3 text-sm"
-              >
-                <p className="text-foreground">{n.note}</p>
-                <p className="mt-1 text-xs text-faint">
-                  {n.employee?.full_name ?? n.employee?.email ?? "—"} ·{" "}
-                  {new Date(n.created_at).toLocaleDateString("es-ES")}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted">Aún no hay anotaciones.</p>
-        )}
-      </section>
+            {recentNotes.length > 0 ? (
+              <ul className="mt-4 space-y-2">
+                {recentNotes.map((n) => (
+                  <li key={n.id} className="rounded-lg border border-border p-2.5 text-sm">
+                    <p className="text-foreground">{n.note}</p>
+                    <p className="mt-1 text-xs text-faint">
+                      {n.employee?.full_name ?? n.employee?.email ?? "—"} ·{" "}
+                      {new Date(n.created_at).toLocaleDateString("es-ES")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 text-sm text-muted">Aún no hay anotaciones.</p>
+            )}
+            {olderNotes.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted hover:text-foreground">
+                  Ver anotaciones anteriores ({olderNotes.length})
+                </summary>
+                <ul className="mt-2 space-y-2">
+                  {olderNotes.map((n) => (
+                    <li key={n.id} className="rounded-lg border border-border p-2.5 text-sm">
+                      <p className="text-foreground">{n.note}</p>
+                      <p className="mt-1 text-xs text-faint">
+                        {n.employee?.full_name ?? n.employee?.email ?? "—"} ·{" "}
+                        {new Date(n.created_at).toLocaleDateString("es-ES")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
