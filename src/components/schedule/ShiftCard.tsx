@@ -1,4 +1,4 @@
-export type ShiftCardVariant = "assigned" | "own" | "unassigned" | "dayoff" | "conflict";
+export type ShiftCardVariant = "assigned" | "own" | "unassigned" | "dayoff" | "conflict" | "suggested";
 
 const AREA_DOT_CLASS: Record<string, string> = {
   servicio: "bg-info-foreground",
@@ -17,6 +17,7 @@ const VARIANT_CLASS: Record<ShiftCardVariant, string> = {
     "border border-dashed border-warning-foreground bg-warning text-warning-foreground",
   conflict: "border-l-[3px] border-l-danger-foreground bg-danger text-danger-foreground",
   dayoff: "border-l-[3px] border-l-warning-foreground bg-warning text-warning-foreground",
+  suggested: "border-2 border-dashed border-info-foreground bg-info/60 text-info-foreground",
 };
 
 /**
@@ -79,7 +80,14 @@ export function ShiftCard({
         onClick ? "cursor-pointer" : ""
       } ${selected ? "ring-2 ring-info-foreground" : ""} ${className}`}
     >
-      <p className="text-[13px] font-semibold leading-tight">{title}</p>
+      <p className="flex items-center gap-1 text-[13px] font-semibold leading-tight">
+        {variant === "suggested" && (
+          <span className="rounded bg-info-foreground px-1 py-px text-[9px] font-bold uppercase tracking-wide text-info">
+            ✨ IA
+          </span>
+        )}
+        {title}
+      </p>
       {meta && (
         <p className="mt-1 flex items-center gap-1.5 text-[11px] leading-none opacity-90">
           {area && (

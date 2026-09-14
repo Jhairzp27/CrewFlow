@@ -85,7 +85,7 @@ export default async function AdminDashboardPage() {
     await Promise.all([
       supabase
         .from("shifts")
-        .select("id, employee_id, branch_id, area, shift_date, start_time, end_time"),
+        .select("id, employee_id, branch_id, area, shift_date, start_time, end_time, suggested"),
       supabase
         .from("business_rules")
         .select("value")
@@ -128,6 +128,7 @@ export default async function AdminDashboardPage() {
       startTime: s.start_time,
       endTime: s.end_time,
       area: s.area as "servicio" | "cocina" | null,
+      suggested: s.suggested,
     });
     shiftsByEmployeeDate.set(key, list);
   }

@@ -184,6 +184,9 @@ export async function updateShift(
       shift_date: parsed.shiftDate,
       start_time: parsed.startTime,
       end_time: parsed.endTime,
+      // Editar un turno sugerido por "Generar borrador" equivale a
+      // revisarlo y aprobarlo — deja de marcarse como sugerencia.
+      suggested: false,
     })
     .eq("id", shiftId);
 
@@ -205,6 +208,29 @@ export async function updateShift(
 
   const week = formData.get("week") as string;
   redirect(week ? `/admin/schedule?week=${week}` : "/admin/schedule");
+}
+
+/** Aprueba un turno sugerido por "Generar borrador" sin cambiar nada más. */
+export async function approveSuggestedShift(shiftId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { error } = await supabase
+    .from("shifts")
+    .update({ suggested: false })
+    .eq("id", shiftId);
+
+  if (error) {
+    console.error("approveSuggestedShift error:", error);
+  }
+
+  revalidatePath("/admin/schedule");
+  revalidatePath("/admin/dashboard");
 }
 
 export async function deleteShift(shiftId: string) {

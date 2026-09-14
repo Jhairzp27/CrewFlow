@@ -24,6 +24,7 @@ type Employee = {
   email: string | null;
   area: string | null;
   weekly_contracted_hours: number | null;
+  default_branch_id: string | null;
 };
 type Shift = {
   id: string;
@@ -33,6 +34,7 @@ type Shift = {
   shift_date: string;
   start_time: string;
   end_time: string;
+  suggested: boolean;
 };
 type KitchenRule = { branch_id: string; day_of_week: number; min_staff: number };
 type ServiceRule = {
@@ -86,12 +88,12 @@ export default async function AdminSchedulePage({
     supabase.from("branches").select("id, code, name").order("code"),
     supabase
       .from("profiles")
-      .select("id, full_name, email, area, weekly_contracted_hours")
+      .select("id, full_name, email, area, weekly_contracted_hours, default_branch_id")
       .eq("role", "employee")
       .order("full_name", { ascending: true }),
     supabase
       .from("shifts")
-      .select("id, employee_id, branch_id, area, shift_date, start_time, end_time")
+      .select("id, employee_id, branch_id, area, shift_date, start_time, end_time, suggested")
       .gte("shift_date", weekStart)
       .lte("shift_date", weekEnd),
     supabase.from("shifts").select("employee_id, shift_date"),
@@ -239,6 +241,7 @@ export default async function AdminSchedulePage({
       startTime: s.start_time,
       endTime: s.end_time,
       area: s.area as "servicio" | "cocina",
+      suggested: s.suggested,
     });
     shiftsRecord[key] = list;
     dayShiftCountsRecord[s.shift_date] = (dayShiftCountsRecord[s.shift_date] ?? 0) + 1;
@@ -248,6 +251,7 @@ export default async function AdminSchedulePage({
     id: e.id,
     name: e.full_name ?? e.email ?? "—",
     area: e.area as "servicio" | "cocina" | null,
+    defaultBranchId: e.default_branch_id,
   }));
 
   const contractedHoursByEmployee: Record<string, number> = {};

@@ -93,6 +93,19 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Tailwind ya no pone cursor:pointer en <button> por defecto (usa el
+   cursor "default" nativo de los controles de formulario) — se restaura
+   aquí una sola vez para que todo botón de la app se sienta clicable,
+   en vez de repetir cursor-pointer en cada componente. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Evita el "flash" de tema incorrecto mientras carga el script del toggle. */
 html {
   color-scheme: light;

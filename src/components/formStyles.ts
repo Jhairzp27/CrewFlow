@@ -11,10 +11,10 @@ export const cardClass =
   "rounded-xl border border-border bg-surface p-6 shadow-sm";
 
 export const primaryButtonClass =
-  "rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground shadow-sm transition-shadow hover:bg-accent-hover hover:shadow disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none";
 
 export const secondaryButtonClass =
-  "rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-surface-hover";
+  "rounded-md border border-border px-3 py-1.5 text-sm text-foreground shadow-sm transition-shadow hover:bg-surface-hover hover:shadow";
 
 export const errorBoxClass =
   "rounded-md bg-danger px-3 py-2 text-sm text-danger-foreground";

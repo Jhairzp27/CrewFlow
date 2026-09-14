@@ -10,7 +10,7 @@ import { WeekNav } from "@/components/schedule/WeekNav";
 import { SummaryCounter } from "@/components/schedule/SummaryCounter";
 import { Badge } from "@/components/Badge";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { deleteShift } from "./actions";
+import { deleteShift, approveSuggestedShift } from "./actions";
 import { generateScheduleDraft, type GenerateDraftState } from "./generateDraft";
 import { ShiftPopoverForm } from "./ShiftPopoverForm";
 import { hoursBetween } from "@/lib/hours";
@@ -135,26 +135,45 @@ export function SchedulePlanner({
     setPopover(null);
   }
 
+  /** Sucursal del turno más reciente de esta semana para este empleado —
+   *  para prellenar (sin bloquear) la sucursal de un rotativo sin turnos
+   *  previos ese día, en vez de dejarla en blanco. */
+  function preferredBranchIdFor(employeeId: string): string | undefined {
+    for (const date of dates) {
+      const shifts = shiftsRecord[`${employeeId}_${date}`] ?? [];
+      if (shifts.length > 0) {
+        return branches.find((b) => b.code === shifts[0].branchCode)?.id;
+      }
+    }
+    return undefined;
+  }
+
   function renderPopoverFor(employeeId: string, date: string) {
     if (!popover || popover.employeeId !== employeeId || popover.date !== date) return null;
     const shift = popover.shiftId
       ? (shiftsRecord[`${employeeId}_${date}`] ?? []).find((s) => s.id === popover.shiftId)
       : null;
     const branch = branches.find((b) => b.code === shift?.branchCode);
+    const employee = employeeById.get(employeeId);
+    const isNewShift = !popover.shiftId;
+    const lockedBranchId = isNewShift ? employee?.defaultBranchId ?? undefined : undefined;
+    const dateIndex = dates.indexOf(date);
     return (
       <ShiftPopoverForm
         employeeId={employeeId}
-        employeeName={employeeById.get(employeeId)?.name ?? "Empleado"}
+        employeeName={employee?.name ?? "Empleado"}
+        employeeArea={employee?.area ?? null}
         date={date}
         currentWeek={currentWeek}
         branches={branches}
         shiftId={popover.shiftId}
-        defaultArea={shift?.area}
-        defaultBranchId={branch?.id}
+        lockedBranchId={lockedBranchId}
+        defaultBranchId={branch?.id ?? (isNewShift ? preferredBranchIdFor(employeeId) : undefined)}
         defaultStartTime={shift?.startTime.slice(0, 5)}
         defaultEndTime={shift?.endTime.slice(0, 5)}
         otherHoursThisWeek={weekHoursForEmployee(employeeId, shift?.id)}
         hoursContracted={contractedHoursByEmployee[employeeId] ?? 40}
+        align={dateIndex >= dates.length - 2 ? "right" : "left"}
         onClose={closePopover}
       />
     );
@@ -200,11 +219,14 @@ export function SchedulePlanner({
           </div>
           <form action={draftAction}>
             <input type="hidden" name="week" value={currentWeek} />
+            <input type="hidden" name="branch_filter" value={branchFilter} />
             <button
               type="submit"
               disabled={draftPending}
-              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+              title="Asistente que propone turnos de servicio para cubrir los huecos — tú decides si aprobarlos"
+              className="flex items-center gap-1.5 rounded-md border border-info-foreground bg-info px-3 py-1.5 text-sm font-medium text-info-foreground shadow-sm transition-colors hover:bg-info/70 disabled:opacity-60"
             >
+              <span aria-hidden="true">✨</span>
               {draftPending ? "Generando…" : "Generar borrador"}
             </button>
           </form>
@@ -223,10 +245,12 @@ export function SchedulePlanner({
         </p>
       )}
       {draftState.summary && (
-        <div className="space-y-1.5 border-b border-border bg-success/40 px-4 py-3 text-sm">
+        <div className="m-3 space-y-1.5 rounded-lg border-2 border-dashed border-info-foreground bg-info/30 px-4 py-3 text-sm">
           <p className="font-medium text-foreground">
-            Borrador generado: {draftState.summary.shiftsCreated} turno(s) de servicio creados.
-            Revísalos y edítalos o elimínalos como cualquier otro turno.
+            ✨ {draftState.summary.shiftsCreated} turno(s) sugeridos
+            {draftState.summary.branchFilterApplied ? ` para ${draftState.summary.branchFilterApplied}` : ""}{" "}
+            — se ven con borde punteado y la etiqueta "IA" en la grilla. Apruébalos, edítalos o
+            elimínalos, no quedan confirmados hasta que decidas.
           </p>
           {draftState.summary.kitchenGapsRemaining > 0 && (
             <p className="text-xs text-muted">
@@ -351,29 +375,33 @@ export function SchedulePlanner({
               }}
               renderShiftActions={(shift, employeeId, date) =>
                 selectedShiftId === shift.id ? (
-                  <p className="mt-1.5 flex gap-3 text-[11px] font-medium">
+                  <div className="mt-1.5 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {shift.suggested && (
+                      <form action={approveSuggestedShift.bind(null, shift.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-success-foreground bg-success px-2 py-1 text-[11px] font-semibold text-success-foreground hover:opacity-80"
+                        >
+                          ✓ Aprobar
+                        </button>
+                      </form>
+                    )}
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPopover({ employeeId, date, shiftId: shift.id });
-                      }}
-                      className="text-info-foreground hover:underline"
+                      onClick={() => setPopover({ employeeId, date, shiftId: shift.id })}
+                      className="rounded-md border border-info-foreground bg-info px-2 py-1 text-[11px] font-semibold text-info-foreground hover:opacity-80"
                     >
-                      Editar
+                      ✎ Editar
                     </button>
-                    <form
-                      action={deleteShift.bind(null, shift.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <form action={deleteShift.bind(null, shift.id)}>
                       <ConfirmButton
                         confirmMessage="¿Eliminar este turno? Esta acción no se puede deshacer."
-                        className="text-danger-foreground hover:underline"
+                        className="rounded-md border border-danger-foreground bg-danger px-2 py-1 text-[11px] font-semibold text-danger-foreground hover:opacity-80"
                       >
-                        Eliminar
+                        × Eliminar
                       </ConfirmButton>
                     </form>
-                  </p>
+                  </div>
                 ) : null
               }
               emptyCellContent={(employeeId, date) => (

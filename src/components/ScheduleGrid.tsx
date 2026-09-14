@@ -8,12 +8,14 @@ export type GridShift = {
   startTime: string;
   endTime: string;
   area?: "servicio" | "cocina" | null;
+  suggested?: boolean;
 };
 
 export type GridEmployee = {
   id: string;
   name: string;
   area: "servicio" | "cocina" | null;
+  defaultBranchId?: string | null;
 };
 
 const AREA_LABEL: Record<string, string> = {
@@ -166,7 +168,9 @@ export function ScheduleGrid({
                               area={s.area}
                               branchCode={s.branchCode}
                               variant={
-                                shiftVariant
+                                s.suggested
+                                  ? "suggested"
+                                  : shiftVariant
                                   ? shiftVariant(s, emp.id)
                                   : emp.id === ownEmployeeId
                                   ? "own"

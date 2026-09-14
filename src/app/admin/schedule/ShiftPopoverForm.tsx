@@ -20,37 +20,48 @@ type Branch = { id: string; code: string; name: string };
 export function ShiftPopoverForm({
   employeeId,
   employeeName,
+  employeeArea,
   date,
   currentWeek,
   branches,
   shiftId,
-  defaultArea,
+  lockedBranchId,
   defaultBranchId,
   defaultStartTime,
   defaultEndTime,
   otherHoursThisWeek,
   hoursContracted,
+  align = "left",
   onClose,
 }: {
   employeeId: string;
   employeeName: string;
+  /** Área fija del empleado (confirmado con el negocio: "el área es fija")
+   *  — si no es null, no se vuelve a preguntar, se usa directo. */
+  employeeArea: "servicio" | "cocina" | null;
   date: string;
   currentWeek: string;
   branches: Branch[];
   shiftId?: string;
-  defaultArea?: "servicio" | "cocina" | null;
+  /** Sucursal fija del empleado (profiles.default_branch_id) para un turno
+   *  nuevo — si viene, no se pregunta sucursal, se asigna directo. */
+  lockedBranchId?: string;
   defaultBranchId?: string;
   defaultStartTime?: string;
   defaultEndTime?: string;
   otherHoursThisWeek: number;
   hoursContracted: number;
+  /** "right" para las últimas columnas (ej. domingo), para que el popover
+   *  no se salga del área visible de la grilla. */
+  align?: "left" | "right";
   onClose: () => void;
 }) {
   const action = shiftId ? updateShift.bind(null, shiftId) : createShift;
   const [state, formAction, pending] = useActionState(action, initialState);
 
-  const [branchId, setBranchId] = useState(defaultBranchId ?? branches[0]?.id ?? "");
-  const [area, setArea] = useState<"servicio" | "cocina">(defaultArea ?? "servicio");
+  const [branchId, setBranchId] = useState(lockedBranchId ?? defaultBranchId ?? branches[0]?.id ?? "");
+  const [areaFallback, setAreaFallback] = useState<"servicio" | "cocina">("servicio");
+  const area = employeeArea ?? areaFallback;
   const [startTime, setStartTime] = useState(defaultStartTime ?? "");
   const [endTime, setEndTime] = useState(defaultEndTime ?? "");
 
@@ -67,7 +78,9 @@ export function ShiftPopoverForm({
     <div
       role="dialog"
       aria-label={shiftId ? "Editar turno" : "Nuevo turno"}
-      className="absolute left-0 top-full z-20 mt-1 w-[266px] rounded-lg border border-border bg-surface p-3 shadow-xl"
+      className={`absolute top-full z-20 mt-1 w-[266px] rounded-lg border border-border bg-surface p-3 shadow-xl ${
+        align === "right" ? "right-0" : "left-0"
+      }`}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="mb-2.5 flex items-start justify-between gap-2">
@@ -113,44 +126,57 @@ export function ShiftPopoverForm({
 
         <div>
           <p className={`${labelClass} mb-1 text-xs`}>Sucursal</p>
-          <div className="flex gap-1.5">
-            {branches.map((b) => (
-              <button
-                key={b.id}
-                type="button"
-                aria-pressed={branchId === b.id}
-                onClick={() => setBranchId(b.id)}
-                className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
-                  branchId === b.id
-                    ? "border-info-foreground bg-info text-info-foreground"
-                    : "border-border bg-background text-muted hover:text-foreground"
-                }`}
-              >
-                {b.code}
-              </button>
-            ))}
-          </div>
+          {lockedBranchId ? (
+            <p className="rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs font-semibold text-foreground">
+              {branches.find((b) => b.id === lockedBranchId)?.code ?? "—"}{" "}
+              <span className="font-normal text-muted">· sucursal fija de {employeeName.split(" ")[0]}</span>
+            </p>
+          ) : (
+            <div className="flex gap-1.5">
+              {branches.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  aria-pressed={branchId === b.id}
+                  onClick={() => setBranchId(b.id)}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold transition-colors ${
+                    branchId === b.id
+                      ? "border-info-foreground bg-info text-info-foreground"
+                      : "border-border bg-background text-muted hover:border-accent hover:text-foreground"
+                  }`}
+                >
+                  {b.code}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
           <p className={`${labelClass} mb-1 text-xs`}>Área</p>
-          <div className="flex gap-1.5">
-            {(["servicio", "cocina"] as const).map((a) => (
-              <button
-                key={a}
-                type="button"
-                aria-pressed={area === a}
-                onClick={() => setArea(a)}
-                className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                  area === a
-                    ? "border-accent bg-accent text-accent-foreground"
-                    : "border-border bg-background text-muted hover:text-foreground"
-                }`}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
+          {employeeArea ? (
+            <p className="rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs font-semibold capitalize text-foreground">
+              {employeeArea} <span className="font-normal text-muted">· área fija</span>
+            </p>
+          ) : (
+            <div className="flex gap-1.5">
+              {(["servicio", "cocina"] as const).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  aria-pressed={areaFallback === a}
+                  onClick={() => setAreaFallback(a)}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    areaFallback === a
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-border bg-background text-muted hover:border-accent hover:text-foreground"
+                  }`}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {overContract && (

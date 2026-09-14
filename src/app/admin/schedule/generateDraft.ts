@@ -66,6 +66,7 @@ export type GenerateDraftState = {
     kitchenGapsRemaining: number;
     unfilledSlots: { date: string; branchCode: string; entryTime: string; missing: number }[];
     restRuleOverrides: string[];
+    branchFilterApplied: string | null;
   } | null;
 };
 
@@ -104,6 +105,7 @@ export async function generateScheduleDraft(
   const dates = weekDates(monday);
   const weekStart = dates[0];
   const weekEnd = dates[6];
+  const branchFilterCode = formData.get("branch_filter") as string | null;
 
   const [
     { data: branchesData },
@@ -155,6 +157,14 @@ export async function generateScheduleDraft(
   const maxWorkDaysPerWeek = 7 - restDaysPerWeek;
 
   const branchById = new Map(branches.map((b) => [b.id, b]));
+
+  // Si el admin tenía un filtro de sucursal activo en el planificador, el
+  // borrador solo llena huecos de esa sucursal — no tiene sentido generar
+  // turnos para U3 mientras se está mirando solo U2.
+  const targetBranches =
+    branchFilterCode && branchFilterCode !== "todas"
+      ? branches.filter((b) => b.code === branchFilterCode)
+      : branches;
 
   // Reglas de servicio agrupadas por sucursal+día, ordenadas por hora — la
   // primera de cada grupo es la "apertura".
@@ -223,13 +233,14 @@ export async function generateScheduleDraft(
     shift_date: string;
     start_time: string;
     end_time: string;
+    suggested: true;
   }[] = [];
   const unfilledSlots: { date: string; branchCode: string; entryTime: string; missing: number }[] = [];
   const restRuleOverrides: string[] = [];
 
   for (const date of dates) {
     const dow = isoDayOfWeek(date);
-    for (const branch of branches) {
+    for (const branch of targetBranches) {
       const rules = rulesByBranchDay.get(`${branch.id}_${dow}`) ?? [];
       const openingTime = rules[0]?.entry_time;
 
@@ -291,6 +302,7 @@ export async function generateScheduleDraft(
             shift_date: date,
             start_time: rule.entry_time,
             end_time: endTime,
+            suggested: true,
           });
 
           assignedToday.add(chosen.id);
@@ -312,8 +324,10 @@ export async function generateScheduleDraft(
   }
 
   // Huecos de cocina: se reportan pero no se auto-asignan (ver nota arriba).
+  const targetBranchIds = new Set(targetBranches.map((b) => b.id));
   let kitchenGapsRemaining = 0;
   for (const rule of kitchenRules) {
+    if (!targetBranchIds.has(rule.branch_id)) continue;
     const dow = rule.day_of_week;
     const date = dates.find((d) => isoDayOfWeek(d) === dow);
     if (!date) continue;
@@ -346,6 +360,7 @@ export async function generateScheduleDraft(
       kitchenGapsRemaining,
       unfilledSlots,
       restRuleOverrides,
+      branchFilterApplied: branchFilterCode && branchFilterCode !== "todas" ? branchFilterCode : null,
     },
   };
 }

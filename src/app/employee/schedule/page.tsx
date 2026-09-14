@@ -89,6 +89,7 @@ export default async function EmployeeSchedulePage({
         .from("shifts")
         .select("id, shift_date, start_time, end_time, area, branch:branches (code)")
         .eq("employee_id", user?.id ?? "")
+        .eq("suggested", false)
         .gte("shift_date", dates[0])
         .lte("shift_date", dates[6])
         .order("start_time", { ascending: true }),
@@ -96,6 +97,7 @@ export default async function EmployeeSchedulePage({
         .from("shifts")
         .select("id, shift_date, start_time, end_time, area, branch:branches (code)")
         .eq("employee_id", user?.id ?? "")
+        .eq("suggested", false)
         .gte("shift_date", today)
         .order("shift_date", { ascending: true })
         .order("start_time", { ascending: true })
