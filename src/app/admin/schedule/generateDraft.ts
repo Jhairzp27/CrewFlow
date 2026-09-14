@@ -352,7 +352,7 @@ export async function generateScheduleDraft(
     if (insertError) {
       console.error("generateScheduleDraft insert error:", insertError);
       return {
-        error: `No se pudo guardar el borrador generado (${insertError.code ?? "?"}): ${insertError.message}`,
+        error: "No se pudo guardar el borrador generado. Intenta de nuevo.",
         summary: null,
       };
     }
