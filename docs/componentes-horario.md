@@ -149,3 +149,38 @@ arrastre en curso.
   calculado en el cliente al momento de guardar; no se persiste un flag de
   "excepción" en la base de datos porque el negocio no lo pidió más allá del
   aviso mismo.
+
+## Generar borrador de horario (`src/app/admin/schedule/generateDraft.ts`)
+
+Botón "Generar borrador" en el planificador. Reglas de negocio confirmadas
+con el administrador del negocio:
+
+- **Sucursal:** un empleado con `profiles.default_branch_id` fijo solo se
+  asigna a esa sucursal; sin ese valor (`NULL`) es rotativo y elegible para
+  ambas. Se edita directamente en Supabase, igual que `area`/`role`/
+  `weekly_contracted_hours` — no existe todavía una pantalla de
+  administración de empleados.
+- **Aperturas** (el ingreso más temprano de cada sucursal/día): se reparten
+  al azar, con probabilidad inversamente proporcional a cuántas veces ha
+  abierto cada quien en el historial — "aleatorio equiparando entre todos".
+- **El resto de los huecos:** se llenan por menor desgaste (racha de días
+  consecutivos más corta y luego menos horas acumuladas esa semana) —
+  "elegir según desgaste".
+- **Días libres garantizados** (`business_rules.dias_libres_por_semana`):
+  se evita asignar un turno más allá de `7 - días_libres` a quien ya los
+  agotó, salvo que no quede ningún otro candidato — en ese caso sí se
+  asigna, pero se avisa explícitamente en el resumen, nunca en silencio.
+
+**Decisión de alcance:** solo genera turnos de **Servicio**.
+`kitchen_staffing_requirements` (Cocina) define un mínimo de personal por
+día pero no una franja horaria, así que no hay una hora de inicio/fin real
+que asignar sin inventar un dato que el negocio no dio. Esos huecos se
+siguen contando y se muestran en el resumen para asignación manual. El
+horario de fin del último bloque de servicio usa `business_rules
+.hora_cierre_default` ("22:00", dentro del rango de cierre confirmado:
+21:30–22:00).
+
+El resultado son turnos reales, iguales a los creados a mano — el admin los
+aprueba o ajusta con los mismos controles de editar/eliminar que ya
+existían, no se agregó un estado de "borrador" separado en la base de
+datos.

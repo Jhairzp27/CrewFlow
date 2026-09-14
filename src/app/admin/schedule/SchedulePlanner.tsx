@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { ScheduleGrid, type GridEmployee, type GridShift } from "@/components/ScheduleGrid";
 import { EmployeeSidebar, type SidebarEmployee } from "@/components/schedule/EmployeeSidebar";
 import { BranchSwitch, type BranchFilter } from "@/components/schedule/BranchSwitch";
@@ -11,9 +11,12 @@ import { SummaryCounter } from "@/components/schedule/SummaryCounter";
 import { Badge } from "@/components/Badge";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { deleteShift } from "./actions";
+import { generateScheduleDraft, type GenerateDraftState } from "./generateDraft";
 import { ShiftPopoverForm } from "./ShiftPopoverForm";
 import { hoursBetween } from "@/lib/hours";
 import { DAY_LABELS, DAY_LABELS_MIN, isoDayOfWeek } from "@/lib/dates";
+
+const generateDraftInitial: GenerateDraftState = { error: null, summary: null };
 
 type Branch = { id: string; code: string; name: string };
 type CoveragePopoverTarget = { employeeId: string; date: string; shiftId?: string };
@@ -85,6 +88,10 @@ export function SchedulePlanner({
   const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
   const [popover, setPopover] = useState<CoveragePopoverTarget | null>(null);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+  const [draftState, draftAction, draftPending] = useActionState(
+    generateScheduleDraft,
+    generateDraftInitial
+  );
 
   const shiftsByEmployeeDate = useMemo(() => new Map(Object.entries(shiftsRecord)), [shiftsRecord]);
   const dayOffByEmployeeDate = useMemo(() => new Map(Object.entries(dayOffRecord)), [dayOffRecord]);
@@ -191,6 +198,16 @@ export function SchedulePlanner({
               Días × horas
             </button>
           </div>
+          <form action={draftAction}>
+            <input type="hidden" name="week" value={currentWeek} />
+            <button
+              type="submit"
+              disabled={draftPending}
+              className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
+            >
+              {draftPending ? "Generando…" : "Generar borrador"}
+            </button>
+          </form>
           <Link
             href="/admin/schedule/import"
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-hover"
@@ -199,6 +216,52 @@ export function SchedulePlanner({
           </Link>
         </div>
       </div>
+
+      {draftState.error && (
+        <p className="border-b border-border bg-danger px-4 py-2.5 text-sm text-danger-foreground">
+          {draftState.error}
+        </p>
+      )}
+      {draftState.summary && (
+        <div className="space-y-1.5 border-b border-border bg-success/40 px-4 py-3 text-sm">
+          <p className="font-medium text-foreground">
+            Borrador generado: {draftState.summary.shiftsCreated} turno(s) de servicio creados.
+            Revísalos y edítalos o elimínalos como cualquier otro turno.
+          </p>
+          {draftState.summary.kitchenGapsRemaining > 0 && (
+            <p className="text-xs text-muted">
+              Quedan {draftState.summary.kitchenGapsRemaining} hueco(s) de cocina sin cubrir — cocina
+              no se asigna automáticamente todavía, hazlo a mano.
+            </p>
+          )}
+          {draftState.summary.unfilledSlots.length > 0 && (
+            <details className="text-xs text-warning-foreground">
+              <summary className="cursor-pointer font-medium">
+                {draftState.summary.unfilledSlots.length} hueco(s) de servicio sin candidato disponible
+              </summary>
+              <ul className="mt-1 list-inside list-disc">
+                {draftState.summary.unfilledSlots.map((s, i) => (
+                  <li key={i}>
+                    {s.branchCode} · {s.date} {s.entryTime.slice(0, 5)} — faltan {s.missing}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {draftState.summary.restRuleOverrides.length > 0 && (
+            <details className="text-xs text-warning-foreground">
+              <summary className="cursor-pointer font-medium">
+                {draftState.summary.restRuleOverrides.length} aviso(s) de días libres
+              </summary>
+              <ul className="mt-1 list-inside list-disc">
+                {draftState.summary.restRuleOverrides.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* Resumen de la semana */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
