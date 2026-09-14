@@ -124,6 +124,7 @@ export default async function AdminDashboardPage() {
       branchCode: branchCodeById.get(s.branch_id) ?? "?",
       startTime: s.start_time,
       endTime: s.end_time,
+      area: s.area as "servicio" | "cocina" | null,
     });
     shiftsByEmployeeDate.set(key, list);
   }
@@ -191,6 +192,7 @@ export default async function AdminDashboardPage() {
           dates={dates}
           employees={gridEmployees}
           shiftsByEmployeeDate={shiftsByEmployeeDate}
+          todayDate={todayDateOnly()}
         />
       </section>
 
