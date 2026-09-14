@@ -337,14 +337,22 @@ export async function generateScheduleDraft(
     kitchenGapsRemaining += Math.max(0, rule.min_staff - assigned);
   }
 
-  if (rowsToInsert.length > 0) {
+  // Salvaguarda: nunca debería haber dos filas para el mismo empleado+fecha
+  // gracias a assignedToday, pero un upsert con la misma llave repetida en
+  // el mismo lote falla en Postgres ("no puede afectar la misma fila dos
+  // veces") — se deduplica por si acaso antes de guardar.
+  const dedupedRows = Array.from(
+    new Map(rowsToInsert.map((r) => [`${r.employee_id}_${r.shift_date}_${r.start_time}`, r])).values()
+  );
+
+  if (dedupedRows.length > 0) {
     const { error: insertError } = await supabase
       .from("shifts")
-      .upsert(rowsToInsert, { onConflict: "employee_id,shift_date,start_time" });
+      .upsert(dedupedRows, { onConflict: "employee_id,shift_date,start_time" });
     if (insertError) {
       console.error("generateScheduleDraft insert error:", insertError);
       return {
-        error: "No se pudo guardar el borrador generado. Intenta de nuevo.",
+        error: `No se pudo guardar el borrador generado (${insertError.code ?? "?"}): ${insertError.message}`,
         summary: null,
       };
     }
@@ -356,7 +364,7 @@ export async function generateScheduleDraft(
   return {
     error: null,
     summary: {
-      shiftsCreated: rowsToInsert.length,
+      shiftsCreated: dedupedRows.length,
       kitchenGapsRemaining,
       unfilledSlots,
       restRuleOverrides,
