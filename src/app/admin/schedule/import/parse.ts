@@ -17,6 +17,7 @@ export type ParseResult = {
   entries: ParsedShiftEntry[];
   skipped: SkippedCell[];
   warnings: string[];
+  sawFechas: boolean;
 };
 
 const AREA_MAP: Record<string, "servicio" | "cocina"> = {
@@ -127,13 +128,7 @@ export function parseScheduleWorkbook(sheet: ExcelJS.Worksheet): ParseResult {
     }
   });
 
-  if (!sawFechas) {
-    warnings.push(
-      'No encontré ninguna fila "FECHAS" — revisa que el archivo tenga el mismo formato de la plantilla.'
-    );
-  }
-
-  return { entries, skipped, warnings };
+  return { entries, skipped, warnings, sawFechas };
 }
 
 const TIME_RE = /^(\d{1,2})[.:](\d{2})$/;

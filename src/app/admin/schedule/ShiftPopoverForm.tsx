@@ -4,7 +4,8 @@ import { useActionState, useEffect, useState } from "react";
 import { createShift, updateShift, type ShiftFormState } from "./actions";
 import { hoursBetween } from "@/lib/hours";
 import { DAY_LABELS, isoDayOfWeek } from "@/lib/dates";
-import { inputClass, labelClass } from "@/components/formStyles";
+import { labelClass } from "@/components/formStyles";
+import { TimePicker } from "@/components/TimePicker";
 
 const initialState: ShiftFormState = { error: null, success: false };
 
@@ -100,29 +101,13 @@ export function ShiftPopoverForm({
             <label htmlFor="start_time" className={`${labelClass} mb-0.5 text-xs`}>
               Inicio
             </label>
-            <input
-              id="start_time"
-              name="start_time"
-              type="time"
-              required
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className={`${inputClass} py-1.5 text-xs`}
-            />
+            <TimePicker id="start_time" name="start_time" value={startTime} onChange={setStartTime} required />
           </div>
           <div>
             <label htmlFor="end_time" className={`${labelClass} mb-0.5 text-xs`}>
               Fin
             </label>
-            <input
-              id="end_time"
-              name="end_time"
-              type="time"
-              required
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className={`${inputClass} py-1.5 text-xs`}
-            />
+            <TimePicker id="end_time" name="end_time" value={endTime} onChange={setEndTime} required />
           </div>
         </div>
 

@@ -85,10 +85,31 @@ export async function parseScheduleFile(
     return { error: "No se pudo leer el archivo. ¿Es un .xlsx válido?", preview: null };
   }
 
-  const sheet = workbook.worksheets[0];
-  if (!sheet) return { error: "El archivo no tiene hojas.", preview: null };
+  if (workbook.worksheets.length === 0) {
+    return { error: "El archivo no tiene hojas.", preview: null };
+  }
 
-  const { entries, skipped, warnings } = parseScheduleWorkbook(sheet);
+  // El libro puede traer varias hojas (semanas distintas, o una hoja de
+  // instrucciones aparte, como en la plantilla) — se recorren todas y se
+  // combinan los turnos encontrados; solo se avisa que falta la fila
+  // "FECHAS" si ninguna hoja del libro la tenía.
+  const entries: ReturnType<typeof parseScheduleWorkbook>["entries"] = [];
+  const skipped: ReturnType<typeof parseScheduleWorkbook>["skipped"] = [];
+  const warnings: string[] = [];
+  let anySheetHadFechas = false;
+  for (const sheet of workbook.worksheets) {
+    const result = parseScheduleWorkbook(sheet);
+    entries.push(...result.entries);
+    skipped.push(...result.skipped);
+    warnings.push(...result.warnings.map((w) => `[${sheet.name}] ${w}`));
+    if (result.sawFechas) anySheetHadFechas = true;
+  }
+  if (!anySheetHadFechas) {
+    warnings.push(
+      'No encontré ninguna fila "FECHAS" en ninguna hoja — revisa que el archivo tenga el mismo formato de la plantilla.'
+    );
+  }
+
   if (entries.length === 0) {
     return {
       error: "No se encontraron turnos para importar en el archivo.",
